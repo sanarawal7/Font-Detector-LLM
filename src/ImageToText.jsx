@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { HfInference } from "@huggingface/inference";
 
-const inference = new HfInference("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");
+const inference = new HfInference("(insert hf api)");
 
 const ImageToText = () => {
   const [imageUrl, setImageUrl] = useState("");
