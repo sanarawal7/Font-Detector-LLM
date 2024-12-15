@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { HfInference } from "@huggingface/inference";
 
-const inference = new HfInference("(insert hf api)");
+const inference = new HfInference("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");
 
 const ImageToText = () => {
   const [imageUrl, setImageUrl] = useState("");
-  const [fontName, setFontName] = useState(""); // State to hold the font name
+  const [fontName, setFontName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [boldness, setBoldness] = useState(400); // Default font weight
-  const [fontSize, setFontSize] = useState(30); // Default font size
-  const [fontColor, setFontColor] = useState("#000000"); // Default font color
-  const canvasRef = useRef(null); // Ref for the canvas element
+  const [boldness, setBoldness] = useState(400);
+  const [fontSize, setFontSize] = useState(30);
+  const [fontColor, setFontColor] = useState("#000000");
+  const canvasRef = useRef(null);
 
   const describeImage = async (url) => {
     const messages = [
@@ -19,14 +19,17 @@ const ImageToText = () => {
         role: "user",
         content: [
           { type: "image_url", image_url: { url: url } },
-          { type: "text", text: "which google font does the image resemble the most among the following fonts:roboto,creepster,lato,pacifico.answer in one word" },
+          {
+            type: "text",
+            text: "Which Google font does the image resemble the most among the following fonts: Roboto, Creepster, Lato, Pacifico? Respond with exactly one of these font names only.",
+          },
         ],
       },
     ];
 
     setLoading(true);
     setError("");
-    setFontName(""); // Reset font name when starting
+    setFontName("");
     const responseChunks = [];
 
     try {
@@ -37,8 +40,27 @@ const ImageToText = () => {
       })) {
         responseChunks.push(chunk.choices[0]?.delta?.content || "");
       }
-      const finalDescription = responseChunks.join("");
-      setFontName(finalDescription); // Set the detected font name
+      const finalDescription = responseChunks.join("").trim();
+      console.log("Raw response:", finalDescription);
+
+      const cleanedResponse = finalDescription
+        .replace(/\./g, "")
+        .replace(/\n/g, "")
+        .trim();
+      console.log("Cleaned response:", cleanedResponse);
+
+      const allowedFonts = ["Roboto", "Creepster", "Lato", "Pacifico"];
+      const matchedFont = allowedFonts.find(
+        (font) => cleanedResponse.toLowerCase() === font.toLowerCase()
+      );
+
+      console.log("Matched font:", matchedFont);
+
+      if (matchedFont) {
+        setFontName(matchedFont);
+      } else {
+        setError(`Invalid font name received: "${cleanedResponse}"`);
+      }
     } catch (err) {
       console.error("Error:", err);
       setError("An error occurred while processing the image.");
@@ -57,33 +79,46 @@ const ImageToText = () => {
   };
 
   const loadGoogleFont = (fontName) => {
-    const formattedFontName = fontName.replace(/ /g, "+");
-    const link = document.createElement("link");
-    link.href = `https://fonts.googleapis.com/css2?family=${formattedFontName}&display=swap`;
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
+    const cleanFontName = fontName.replace(/\s+/g, "+"); // Replace spaces with '+'
+    const linkId = `google-font-${cleanFontName}`;
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement("link");
+      link.id = linkId;
+      link.href = `https://fonts.googleapis.com/css2?family=${cleanFontName}&display=swap`;
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
   };
 
   const drawFontOnCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    
-    // Clear the canvas
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     if (fontName) {
-      ctx.font = `${boldness} ${fontSize}px '${fontName}', cursive`; // Use boldness and fontSize
-      ctx.fillStyle = fontColor; // Set text color
-      ctx.fillText("This text uses the detected font!", 20, 100); // Draw text on canvas
+      try {
+        loadGoogleFont(fontName); // Ensure the font is loaded
+        ctx.font = `${boldness} ${fontSize}px '${fontName}', sans-serif`;
+        console.log("Applied font:", ctx.font);
+
+        const text = "This text uses the detected font!";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = fontColor;
+        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+      } catch (err) {
+        console.error("Canvas drawing error:", err);
+        setError("Failed to draw text with the selected font");
+      }
     }
   };
 
   useEffect(() => {
     if (fontName) {
-      loadGoogleFont(fontName);
-      drawFontOnCanvas(); // Draw the font on the canvas when fontName changes
+      drawFontOnCanvas();
     }
-  }, [fontName, boldness, fontSize, fontColor]); // Re-draw when fontName, boldness, fontSize, or color changes
+  }, [fontName, boldness, fontSize, fontColor]);
 
   const downloadImage = () => {
     const canvas = canvasRef.current;
@@ -115,10 +150,13 @@ const ImageToText = () => {
       )}
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      {/* Increased Canvas Size */}
-      <canvas ref={canvasRef} width={800} height={300} style={{ border: "1px solid black" }} />
+      <canvas
+        ref={canvasRef}
+        width={800}
+        height={300}
+        style={{ border: "1px solid black" }}
+      />
 
-      {/* Controls for adjusting font properties */}
       {fontName && (
         <div>
           <label>
